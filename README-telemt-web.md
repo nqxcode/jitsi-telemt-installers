@@ -4,11 +4,10 @@
 
 На `myawesomejitsi.ru` WEB Proxy уже развёрнут. Для проверки конфигурации на этом сервере начните с `--check`.
 
-Для нового сервера положите `jitsi-install.sh` рядом с `telemt-web-install.sh`.
-Установщик Jitsi сначала поднимет видеоконференции и HTTPS, затем запустит Telemt при наличии флага `--with-telemt`.
+Для нового сервера используйте общий установщик [`install.sh`](install.sh). Он сначала настроит Jitsi с HTTPS, затем запустит Telemt.
 
 ```bash
-sudo bash jitsi-install.sh --domain meet.example.com --email admin@example.com --with-telemt
+sudo bash install.sh --domain meet.example.com --email admin@example.com
 ```
 
 При совместной установке путь по умолчанию — `/jitsi/index/`. Чтобы задать другой путь из установщика Jitsi, используйте `--telemt-base-path PATH` без начального и завершающего слеша. Этот параметр также включает установку Telemt.

@@ -10,13 +10,20 @@ readonly PROSODY_CONFIG=/run/prosody/config/prosody.cfg.lua
 readonly PROJECT=jitsi-meet
 
 usage() {
-    cat <<'HELP'
-Установка Jitsi Meet в Docker. Запускайте от root на сервере со свободными
+    local installer=jitsi-install.sh
+    local services='Jitsi Meet'
+    if declare -F run_embedded_telemt >/dev/null; then
+        installer=install.sh
+        services='Jitsi Meet и Telemt WEB Proxy'
+    fi
+
+    cat <<HELP
+Установка $services в Docker. Запускайте от root на сервере со свободными
 TCP 80/443, UDP 10000 и локальными TCP 8080/8888. Нужны Docker Compose,
 Python 3.11+, curl с HTTP/2 и публичный домен с одной IPv4-записью.
 
-  sudo bash jitsi-install.sh --domain meet.example.com --email admin@example.com
-  sudo bash jitsi-install.sh --domain meet.example.com --tls-cert fullchain.pem --tls-key privkey.pem
+  sudo bash $installer --domain meet.example.com --email admin@example.com
+  sudo bash $installer --domain meet.example.com --tls-cert fullchain.pem --tls-key privkey.pem
 
   --public-ip IPV4           Адрес медиамоста. По умолчанию берётся из DNS.
   --organizer NAME            Логин организатора. По умолчанию organizer.
@@ -30,9 +37,17 @@ Python 3.11+, curl с HTTP/2 и публичный домен с одной IPv4
 Для Let's Encrypt нужны доступ к CA и публичный вход на TCP 80.
 Организатор входит по паролю, гости присоединяются после его входа.
 Пароль хранится в /opt/jitsi-meet/organizer.env с правами 0600.
+HELP
+
+    if [[ $installer == install.sh ]]; then
+        printf '%s\n' 'Telemt включён по умолчанию. Нужны Linux x86_64, Docker Compose 2.33.1+' \
+            'и поддержка docker network connect --gw-priority.'
+    else
+        cat <<'HELP'
 Обычный --with-telemt использует telemt-web-install.sh рядом с этим файлом.
 Нужна версия установщика Telemt с поддержкой rootless Jitsi.
 HELP
+    fi
 }
 
 fail() {
@@ -126,10 +141,14 @@ if [[ ${with_telemt:-0} == 1 ]]; then
         [[ ! $telemt_base_path =~ ^[A-Za-z0-9][A-Za-z0-9_-]*(/[A-Za-z0-9][A-Za-z0-9_-]*)*$ ]]; then
         fail 'Для --telemt-base-path нужен путь без начального и завершающего слеша'
     fi
-    telemt_installer=${telemt_installer:-$(dirname "$(realpath -- "${BASH_SOURCE[0]}")")/telemt-web-install.sh}
-    [[ -r $telemt_installer && -f $telemt_installer ]] || fail "Установщик Telemt не найден: $telemt_installer"
-    grep -Fq '/run/web/config/nginx/nginx.conf' "$telemt_installer" ||
-        fail 'Обновите telemt-web-install.sh до версии с поддержкой rootless Jitsi'
+
+    if [[ -n ${telemt_installer:-} ]] || ! declare -F run_embedded_telemt >/dev/null; then
+        telemt_installer=${telemt_installer:-$(dirname "$(realpath -- "${BASH_SOURCE[0]}")")/telemt-web-install.sh}
+        [[ -r $telemt_installer && -f $telemt_installer ]] || fail "Установщик Telemt не найден: $telemt_installer"
+        grep -Fq '/run/web/config/nginx/nginx.conf' "$telemt_installer" ||
+            fail 'Обновите telemt-web-install.sh до версии с поддержкой rootless Jitsi'
+    fi
+
     docker compose version --short | python3 -c '
 import re, sys
 version = re.match(r"v?(\d+)\.(\d+)\.(\d+)", sys.stdin.read())
@@ -162,8 +181,13 @@ configure_telemt() {
     jitsi_web=$(compose ps -q web)
     [[ -n $jitsi_web ]] || fail 'Не найден запущенный веб-контейнер Jitsi для Telemt'
 
-    bash "$telemt_installer" --domain "$domain" --public-ip "$public_ip" \
-        --jitsi-container "$jitsi_web" --base-path "$telemt_base_path" "$@"
+    local args=(--domain "$domain" --public-ip "$public_ip"
+        --jitsi-container "$jitsi_web" --base-path "$telemt_base_path" "$@")
+    if [[ -n ${telemt_installer:-} ]]; then
+        bash "$telemt_installer" "${args[@]}"
+    else
+        run_embedded_telemt "${args[@]}"
+    fi
 }
 
 verify_compose() {

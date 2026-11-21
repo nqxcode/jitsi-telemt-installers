@@ -52,10 +52,10 @@ sudo bash jitsi-install.sh --domain meet.example.com \
 
 ### Jitsi и Telemt вместе
 
-Положите `jitsi-install.sh` и актуальный `telemt-web-install.sh` в один каталог и запустите установку с флагом `--with-telemt`.
+Для нового сервера используйте общий установщик [`install.sh`](install.sh).
 
 ```bash
-sudo bash jitsi-install.sh --domain meet.example.com --email admin@example.com --with-telemt
+sudo bash install.sh --domain meet.example.com --email admin@example.com
 ```
 
 Jitsi сначала проверит HTTPS, медиамост и аккаунт организатора. Затем установщик Telemt добавит приватный слушатель, подключит его к Nginx Jitsi и проверит авторизованный WEB-сеанс. По умолчанию публичный маршрут — `https://meet.example.com/jitsi/index/`, а ссылка для Telegram сохраняется в `/root/telemt-web/web-proxy-link.txt`.
